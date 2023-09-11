@@ -1,0 +1,857 @@
+[void] [System.Reflection.Assembly]::LoadWithPartialName("System.Drawing") 
+[void] [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms") 
+
+Add-Type -AssemblyName System.Windows.Forms
+
+
+
+$Database="\\ptlis25\MIGRATIONS\DatabseUserOut\Saidas2023.accdb"
+cd "C:\oracle\Files"
+
+
+#-------------
+# Main Window 
+#-------------
+
+$objForm = New-Object System.Windows.Forms.Form 
+$objForm.Text = "Devolução de Equipamento"
+$objForm.Size = New-Object System.Drawing.Size(500,320) 
+$objForm.StartPosition = "CenterScreen"
+$objForm.TopMost = $True
+
+
+$objForm.KeyPreview = $True
+$objForm.Add_KeyDown({if ($_.KeyCode -eq "Enter") 
+    {$x=$objTextBox.Text;$objForm.Close()}})
+$objForm.Add_KeyDown({if ($_.KeyCode -eq "Escape") 
+    {$objForm.Close()}})
+
+#----------------
+# Check Username
+#----------------
+
+$Username = New-Object System.Windows.Forms.Label
+$Username.Location = New-Object System.Drawing.Size(15,25) 
+$Username.Size = New-Object System.Drawing.Size(65,25) 
+$Username.Text = "Utilizador:"
+$objForm.Controls.Add($Username) 
+
+$objUsername = New-Object System.Windows.Forms.TextBox 
+$objUsername.Location = New-Object System.Drawing.Size(125,25) 
+$objUsername.Size = New-Object System.Drawing.Size(155,25) 
+$objForm.Controls.Add($objUsername)
+
+$EphorButton = New-Object System.Windows.Forms.Button
+$EphorButton.Location = New-Object System.Drawing.Size(295,25)
+$EphorButton.Size = New-Object System.Drawing.Size(95,20)
+$EphorButton.Text = "Servicenow"
+$EphorButton.Add_Click({
+
+    $EphorUser = $objUsername.Text;
+    $EphorURL = "https://deloitteemea.service-now.com/now/nav/ui/classic/params/target/alm_asset_list.do%3Fsysparm_query%3Dassigned_to.user_nameLIKE$($EphorUser)%26sysparm_first_row%3D1%26sysparm_view%3D%26sysparm_choice_query_raw%3D%26sysparm_list_header_search%3Dtrue"
+    Start-Process $($EphorURL + $EphorUser)
+    
+    })
+$objForm.Controls.Add($EphorButton)
+$User=$objUsername.Text
+
+
+#------------------------------------------
+# Computador
+#------------------------------------------
+
+$Workstation = New-Object System.Windows.Forms.Label
+$Workstation.Location = New-Object System.Drawing.Size(15,60) 
+$Workstation.Size = New-Object System.Drawing.Size(90,25) 
+$Workstation.Text = "Computador:"
+$objForm.Controls.Add($Workstation) 
+
+$objWorkstation = New-Object System.Windows.Forms.TextBox 
+$objWorkstation.Location = New-Object System.Drawing.Size(125,60) 
+$objWorkstation.Size = New-Object System.Drawing.Size(95,20) 
+$objForm.Controls.Add($objWorkstation) 
+
+#----------------
+# Check Email pessoal
+#----------------
+
+$Useremail = New-Object System.Windows.Forms.Label
+$Useremail.Location = New-Object System.Drawing.Size(15,100) 
+$Useremail.Size = New-Object System.Drawing.Size(70,20) 
+$Useremail.Text = "Email:"
+$objForm.Controls.Add($Useremail) 
+
+$objUseremail = New-Object System.Windows.Forms.TextBox 
+$objUseremail.Location = New-Object System.Drawing.Size(125,100) 
+$objUseremail.Size = New-Object System.Drawing.Size(155,20) 
+$objForm.Controls.Add($objUseremail) 
+
+#--------------------
+# Devolução Completa
+#--------------------
+
+$DCButton = New-Object System.Windows.Forms.Button
+$DCButton.Location = New-Object System.Drawing.Size(40,200)
+$DCButton.Size = New-Object System.Drawing.Size(200,23)
+$DCButton.Text = "Devolução Completa"
+
+$DCButton.Add_Click({
+    $Checkmail = $objUseremail.Text
+    $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn,extensionAttribute1
+    $TUser=$GetUser.extensionAttribute8
+    $NomeUser=$GetUser.extensionAttribute1
+    $objWorkstation.Text
+    $EphorUser
+    $Data=Get-Date -Format "dd-MM-yyyy"
+    $NSerie=$objWorkstation.Text
+    $FindUser = .\Query-Access.ps1 -path $Database -query "select COUNT(TUser) FROM Sheet1 WHERE TUser='$TUser'" -csv:$false
+    $User=$objUsername.Text
+    
+    $FindUser= $FindUser.Expr1000.CompareTo(1)
+
+    if($FindUser -eq 0) #Atualiza na DB
+    {
+    #[System.Windows.MessageBox]::Show('Edit')
+    $NSerie=$objWorkstation.Text
+    .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.DevCompleta =Yes WHERE Sheet1.TUser='$TUser'" -csv:$false
+    $Outlook = New-Object -ComObject Outlook.Application
+    $Mail = $Outlook.CreateItem(0)
+    $Mail.To = "ptcssmovimentacoes@deloitte.com; $Checkmail"
+    $Mail.Subject = $("Devolução de Equipamento Incompleta - " + $GetUser.GivenName + " " + $GetUser.sn + " - " + $GetUser.extensionAttribute8)
+    $Mail.Body = $("Serve o presente email para informar que, "  + $GetUser.GivenName + " " + $GetUser.sn + " (" + $GetUser.extensionAttribute8 + "|" + $objUsername.Text + ") devolveu o computador (" + $objWorkstation.Text +") e respetivos acessórios que lhe estavam atribuídos. Foi registada a devolução no inventário. `n`n`n`n`n`n`n`n`n`n`n Email enviado pelo UserOut ver 1.5")
+    $Mail.Send()
+
+    .\Query-Access.ps1 -path $Database -query "update  Sheet1 SET Sheet1.HeadsetStaff =0 WHERE Sheet1.TUser='$TUser'" -csv:$false
+    #.\Query-Access.ps1 -path $Database -query "update  Sheet1 SET Sheet1.PackTargus =No WHERE Sheet1.TUser='$TUser'" -csv:$false
+    .\Query-Access.ps1 -path $Database -query "update  Sheet1 SET Sheet1.MalaTargus =0 WHERE Sheet1.TUser='$TUser'" -csv:$false
+    .\Query-Access.ps1 -path $Database -query "update  Sheet1 SET Sheet1.MochilaTargus =0 WHERE Sheet1.TUser='$TUser'" -csv:$false
+    .\Query-Access.ps1 -path $Database -query "update  Sheet1 SET Sheet1.Cadeado =0 WHERE Sheet1.TUser='$TUser'" -csv:$false
+    .\Query-Access.ps1 -path $Database -query "update  Sheet1 SET Sheet1.HeadsetManager =0 WHERE Sheet1.TUser='$TUser'" -csv:$false
+    .\Query-Access.ps1 -path $Database -query "update  Sheet1 SET Sheet1.DongleHDMI =0 WHERE Sheet1.TUser='$TUser'" -csv:$false
+    .\Query-Access.ps1 -path $Database -query "update  Sheet1 SET Sheet1.Carregador =0 WHERE Sheet1.TUser='$TUser'" -csv:$false
+    .\Query-Access.ps1 -path $Database -query "update  Sheet1 SET Sheet1.DockDell =0 WHERE Sheet1.TUser='$TUser'" -csv:$false
+    #.\Query-Access.ps1 -path $Database -query "update  Sheet1 SET Sheet1.Computador =No WHERE Sheet1.TUser='$TUser'" -csv:$false
+    .\Query-Access.ps1 -path $Database -query "update  Sheet1 SET Sheet1.NSerie ='$NSerie' WHERE Sheet1.TUser='$TUser'" -csv:$false
+    .\Query-Access.ps1 -path $Database -query "update  Sheet1 SET Sheet1.DataDevolucao ='$Data' WHERE Sheet1.TUser='$TUser'" -csv:$false
+    .\Query-Access.ps1 -path $Database -query "update  Sheet1 SET Sheet1.Utilizador ='$User' WHERE Sheet1.TUser='$TUser'" -csv:$false
+    }
+    else #Cria na DB
+    {
+    #[System.Windows.MessageBox]::Show('Novo')
+    $User=$objUsername.Text
+    .\Query-Access.ps1 -path "$Database" -query "INSERT INTO Sheet1(TUser,Utilizador,Nome,DevCompleta,NSerie,DataDevolucao) VALUES ('$TUser','$User','$NomeUser',Yes,'$NSerie','$Data')" -csv:$false
+    #.\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.DevCompleta =Yes WHERE Sheet1.TUser='$TUser'" -csv:$false
+
+    $Outlook = New-Object -ComObject Outlook.Application
+    $Mail = $Outlook.CreateItem(0)
+    $Mail.To = "ptcssmovimentacoes@deloitte.com; $Checkmail"
+    $Mail.Subject = $("Devolução de Equipamento Completa - " + $GetUser.GivenName + " " + $GetUser.sn + " - " + $GetUser.extensionAttribute8)
+    $Mail.Body = $("Serve o presente email para informar que, "  + $GetUser.GivenName + " " + $GetUser.sn + " (" + $GetUser.extensionAttribute8 + "|" + $objUsername.Text + ") devolveu o computador (" + $objWorkstation.Text +") e respetivos acessórios que lhe estavam atribuídos. Foi registada a devolução no inventário. `n`n`n`n`n`n`n`n`n`n`n Email enviado pelo UserOut ver 1.5")
+    $Mail.Send()
+    }
+
+$objForm.Close()})
+$objForm.Controls.Add($DCButton)
+
+#----------------------
+# Devolução Incompleta
+#----------------------
+
+function GenerateForm {
+
+[reflection.assembly]::loadwithpartialname("System.Windows.Forms") | Out-Null
+[reflection.assembly]::loadwithpartialname("System.Drawing") | Out-Null
+
+$frmDevImcompleta = New-Object System.Windows.Forms.Form
+$btnEnviarForm = New-Object System.Windows.Forms.Button
+$checkBox_HeadsetStaff = New-Object System.Windows.Forms.CheckBox
+#$checkBox_PackMochilaMala=New-Object System.Windows.Forms.CheckBox
+$checkBox_Mala = New-Object System.Windows.Forms.CheckBox
+$checkBox_Mochila = New-Object System.Windows.Forms.CheckBox
+$checkBox_Cadeado = New-Object System.Windows.Forms.CheckBox
+$checkBox_HeadsetManager = New-Object System.Windows.Forms.CheckBox
+$checkBox_DongleHDMI = New-Object System.Windows.Forms.CheckBox
+$checkBox_Carregador = New-Object System.Windows.Forms.CheckBox
+$checkBox_DockDell = New-Object System.Windows.Forms.CheckBox
+#$checkBox_Computador = New-Object System.Windows.Forms.CheckBox
+$InitialFormWindowState = New-Object System.Windows.Forms.FormWindowState
+
+$List_HeadsetStaff = New-Object system.Windows.Forms.ComboBox
+$List_HeadsetStaff.Enabled=$false
+
+
+#------------------------------
+# Generated Event Script Blocks
+#------------------------------
+
+
+$checkBox_HeadsetStaff_OnClick = {
+        if ($checkBox_HeadsetStaff.Checked -eq $true)
+        {
+            $List_HeadsetStaff.Enabled = $true  
+            $List_HeadsetStaff.SelectedIndex = 0
+        }
+        elseif ($checkBox_HeadsetStaff.Checked -eq $false)
+        {
+            $List_HeadsetStaff.Enabled = $false
+            $List_HeadsetStaff.SelectedIndex = -1
+        }   
+    }
+    $checkBox_HeadsetStaff.Add_Click($checkBox_HeadsetStaff_OnClick)
+
+$checkBox_Mala_OnClick = {
+        if ($checkBox_Mala.Checked -eq $true)
+        {
+            $List_Mala.Enabled = $true  
+            $List_Mala.SelectedIndex = 0
+        }
+        elseif ($checkBox_Mala.Checked -eq $false)
+        {
+            $List_Mala.Enabled = $false
+            $List_Mala.SelectedIndex = -1
+        }   
+    }
+$checkBox_Mala.Add_Click($checkBox_Mala_OnClick)
+
+$checkBox_Mochila_OnClick = {
+        if ($checkBox_Mochila.Checked -eq $true)
+        {
+            $List_Mochila.Enabled = $true  
+            $List_Mochila.SelectedIndex = 0
+        }
+        elseif ($checkBox_Mochila.Checked -eq $false)
+        {
+            $List_Mochila.Enabled = $false
+            $List_Mochila.SelectedIndex = -1
+        }   
+    }
+    $checkBox_Mochila.Add_Click($checkBox_Mochila_OnClick)
+
+    $checkBox_Cadeado_OnClick = {
+        if ($checkBox_Cadeado.Checked -eq $true)
+        {
+            $List_Cadeado.Enabled = $true  
+            $List_Cadeado.SelectedIndex = 0
+        }
+        elseif ($checkBox_Cadeado.Checked -eq $false)
+        {
+            $List_Cadeado.Enabled = $false
+            $List_Cadeado.SelectedIndex = -1
+        }   
+    }
+    $checkBox_Cadeado.Add_Click($checkBox_Cadeado_OnClick)
+
+    $checkBox_HeadsetManager_OnClick = {
+        if ($checkBox_HeadsetManager.Checked -eq $true)
+        {
+            $List_HeadsetManager.Enabled = $true  
+            $List_HeadsetManager.SelectedIndex = 0
+        }
+        elseif ($checkBox_HeadsetManager.Checked -eq $false)
+        {
+            $List_HeadsetManager.Enabled = $false
+            $List_HeadsetManager.SelectedIndex = -1
+        }   
+    }
+    $checkBox_HeadsetManager.Add_Click($checkBox_HeadsetManager_OnClick)
+
+    $checkBox_DongleHDMI_OnClick = {
+        if ($checkBox_DongleHDMI.Checked -eq $true)
+        {
+            $List_DongleHDMI.Enabled = $true  
+            $List_DongleHDMI.SelectedIndex = 0
+        }
+        elseif ($checkBox_DongleHDMI.Checked -eq $false)
+        {
+            $List_DongleHDMI.Enabled = $false
+            $List_DongleHDMI.SelectedIndex = -1
+        }   
+    }
+    $checkBox_DongleHDMI.Add_Click($checkBox_DongleHDMI_OnClick)
+
+    $checkBox_Carregador_OnClick = {
+        if ($checkBox_Carregador.Checked -eq $true)
+        {
+            $List_Carregador.Enabled = $true  
+            $List_Carregador.SelectedIndex = 0
+        }
+        elseif ($checkBox_Carregador.Checked -eq $false)
+        {
+            $List_Carregador.Enabled = $false
+            $List_Carregador.SelectedIndex = -1
+        }   
+    }
+    $checkBox_Carregador.Add_Click($checkBox_Carregador_OnClick)
+
+    $checkBox_DockDell_OnClick = {
+        if ($checkBox_DockDell.Checked -eq $true)
+        {
+            $List_DockDell.Enabled = $true  
+            $List_DockDell.SelectedIndex = 0
+        }
+        elseif ($checkBox_DockDell.Checked -eq $false)
+        {
+            $List_DockDell.Enabled = $false
+            $List_DockDell.SelectedIndex = -1
+        }   
+    }
+    $checkBox_DockDell.Add_Click($checkBox_DockDell_OnClick)
+
+
+$handler_btnEnviarForm_Click= 
+{
+    $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn,extensionAttribute1
+    $TUser=$GetUser.extensionAttribute8
+    $NomeUser=$GetUser.extensionAttribute1
+    $Data=Get-Date -Format "dd-MM-yyyy"
+    $NSerie=$objWorkstation.Text
+    $User=$objUsername.Text
+    $FindUser = Invoke-Expression .\Query-Access.ps1 -path $Database -query "select COUNT(TUser) FROM Sheet1 WHERE TUser='$TUser'" -csv:$false
+    $FindUser= $FindUser.Expr1000.CompareTo(1)
+
+#     .\Query-Access.ps1 -path $Database -query "update  Sheet1 SET Sheet1.HeadsetStaff ='$List_HeadsetStaff.SelectedValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
+#     #.\Query-Access.ps1 -path $Database -query "update  Sheet1 SET Sheet1.PackTargus =No WHERE Sheet1.TUser='$TUser'" -csv:$false
+#     .\Query-Access.ps1 -path $Database -query "update  Sheet1 SET Sheet1.MalaTargus ='$List_Mala.SelectedValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
+#     .\Query-Access.ps1 -path $Database -query "update  Sheet1 SET Sheet1.MochilaTargus ='$List_Mochila.SelectedValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
+#     .\Query-Access.ps1 -path $Database -query "update  Sheet1 SET Sheet1.Cadeado ='$List_Cadeado.SelectedValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
+#     .\Query-Access.ps1 -path $Database -query "update  Sheet1 SET Sheet1.HeadsetManager ='$List_HeadsetManager.SelectedValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
+#     .\Query-Access.ps1 -path $Database -query "update  Sheet1 SET Sheet1.DongleHDMI ='$List_DongleHDMI.SelectedValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
+#     .\Query-Access.ps1 -path $Database -query "update  Sheet1 SET Sheet1.Carregador ='$List_Carregador.SelectedValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
+#     .\Query-Access.ps1 -path $Database -query "update  Sheet1 SET Sheet1.DockDell ='$List_DockDell.SelectedValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
+#     #.\Query-Access.ps1 -path $Database -query "update  Sheet1 SET Sheet1.Computador =No WHERE Sheet1.TUser='$TUser'" -csv:$false
+#     .\Query-Access.ps1 -path $Database -query "update  Sheet1 SET Sheet1.DevCompleta =No WHERE Sheet1.TUser='$TUser'" -csv:$false
+#     .\Query-Access.ps1 -path $Database -query "update  Sheet1 SET Sheet1.NSerie ='$NSerie' WHERE Sheet1.TUser='$TUser'" -csv:$false
+#     .\Query-Access.ps1 -path $Database -query "update  Sheet1 SET Sheet1.DataDevolucao ='$Data' WHERE Sheet1.TUser='$TUser'" -csv:$false
+#     .\Query-Access.ps1 -path $Database -query "update  Sheet1 SET Sheet1.Utilizador ='$User' WHERE Sheet1.TUser='$TUser'" -csv:$false
+
+    if($FindUser -like 0)#User registado na BD
+    {
+        if ($checkBox_HeadsetStaff.Checked) { $HSStaff = "Headset Staff (30€ + IVA*) `n" 
+           $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
+           $TUser=$GetUser.extensionAttribute8
+           $TempWriteValue= $List_HeadsetStaff.Text
+           .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.HeadsetStaff ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
+
+            }
+    # if ($checkBox_PackMochilaMala.Checked) { $Pack = "Pack Mala e Mochila (80€ + IVA*) `n" 
+    #        $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
+    #        $TUser=$GetUser.extensionAttribute8
+    #        $TempWriteValue= $.Text
+    #        .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.PackTargus =Yes WHERE Sheet1.TUser='$TUser'" -csv:$false
+    #         }
+    if ($checkBox_Mala.Checked) { $Mala = "Mala (40€ + IVA*) `n"
+            $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
+           $TUser=$GetUser.extensionAttribute8
+           $TempWriteValue= $List_Mala.Text
+           .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.MalaTargus ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
+
+            }
+    if ($checkBox_Mochila.Checked) { $Mochila = "Mochila (40€ + IVA*) `n"
+            $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
+           $TUser=$GetUser.extensionAttribute8
+           $TempWriteValue= $List_Mochila.Text
+           .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.MochilaTargus ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
+
+            }
+    if ($checkBox_Cadeado.Checked) { $Cadeado = "Cadeado (25€ + IVA*) `n"
+           $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
+           $TUser=$GetUser.extensionAttribute8
+           $TempWriteValue= $List_Cadeado.Text
+           .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.Cadeado ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
+            }
+    if ($checkBox_HeadsetManager.Checked) { $HSManager = "Headset Manager (65€ + IVA*) `n"
+            $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
+           $TUser=$GetUser.extensionAttribute8
+           $TempWriteValue= $List_HeadsetManager.Text
+           .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.HeadsetManager ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
+
+            } 
+    if ($checkBox_DongleHDMI.Checked) { $Dongle = "Dongle HDMI (15€ + IVA*) `n" 
+            $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
+           $TUser=$GetUser.extensionAttribute8
+           $TempWriteValue= $List_DongleHDMI.Text
+           .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.DongleHDMI ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
+             } 
+    if ($checkBox_Carregador.Checked) { $Carregador = "Transformador/Carregador (75€ + IVA*) `n"
+            $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
+           $TUser=$GetUser.extensionAttribute8
+           $TempWriteValue= $List_Carregador.Text
+           .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.Carregador ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
+
+            } 
+    if ($checkBox_DockDell.Checked) { $Placa = "Dock Dell (56,40€ + IVA*) `n" 
+         $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
+           $TUser=$GetUser.extensionAttribute8
+           $TempWriteValue= $List_DockDell.Text
+           .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.DockDell ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
+
+            }
+    # if ($checkBox_Computador.Checked) { $Computador = "Computador `n" 
+    #        $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
+    #        $TUser=$GetUser.extensionAttribute8
+    #        .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.Computador ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
+
+    #        }
+    }
+    else{
+          .\Query-Access.ps1 -path "$Database" -query "INSERT INTO Sheet1(TUser,Utilizador,Nome,NSerie,DataDevolucao) VALUES ('$TUser','$User','$NomeUser','$NSerie','$Data')" -csv:$false
+    if ($checkBox_HeadsetStaff.Checked) { $HSStaff = "Headset Staff (30€ + IVA*) `n" 
+           $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
+           $TUser=$GetUser.extensionAttribute8
+           $TempWriteValue= $List_HeadsetStaff.Text
+           .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.HeadsetStaff ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
+
+            }
+    # if ($checkBox_PackMochilaMala.Checked) { $Pack = "Pack Mala e Mochila (80€ + IVA*) `n" 
+    #        $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
+    #        $TUser=$GetUser.extensionAttribute8
+    #        .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.PackTargus ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
+
+    #         }
+    if ($checkBox_Mala.Checked) { $Mala = "Mala (40€ + IVA*) `n"
+            $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
+           $TUser=$GetUser.extensionAttribute8
+           $TempWriteValue= $List_Mala.Text
+           .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.MalaTargus ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
+
+            }
+    if ($checkBox_Mochila.Checked) { $Mochila = "Mochila (40€ + IVA*) `n"
+            $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
+           $TUser=$GetUser.extensionAttribute8
+           $TempWriteValue= $List_Mochila.Text
+           .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.MochilaTargus ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
+
+            }
+    if ($checkBox_Cadeado.Checked) { $Cadeado = "Cadeado (25€ + IVA*) `n"
+           $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
+           $TUser=$GetUser.extensionAttribute8
+           $TempWriteValue= $List_Cadeado.Text
+           .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.Cadeado ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
+
+            }
+    if ($checkBox_HeadsetManager.Checked) { $HSManager = "Headset Manager (65€ + IVA*) `n"
+            $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
+           $TUser=$GetUser.extensionAttribute8
+           $TempWriteValue= $List_HeadsetManager.Text
+           .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.HeadsetManager ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
+
+            } 
+    if ($checkBox_DongleHDMI.Checked) { $Dongle = "Dongle HDMI (15€ + IVA*) `n" 
+            $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
+           $TUser=$GetUser.extensionAttribute8
+           $TempWriteValue= $List_DongleHDMI.Text
+           .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.DongleHDMI ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
+
+            } 
+    if ($checkBox_Carregador.Checked) { $Carregador = "Transformador/Carregador (75€ + IVA*) `n"
+            $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
+           $TUser=$GetUser.extensionAttribute8
+           $TempWriteValue= $List_Carregador.Text
+           .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.Carregador ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
+
+            } 
+    if ($checkBox_DockDell.Checked) { $Placa = "Dock Dell (56,40€ + IVA*) `n" 
+         $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
+           $TUser=$GetUser.extensionAttribute8
+           $TempWriteValue= $List_DockDell.Text
+           .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.DockDell ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
+
+            }
+    # if ($checkBox_Computador.Checked) { $Computador = "Computador `n" 
+    #        $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
+    #        $TUser=$GetUser.extensionAttribute8
+    #        .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.Computador ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
+
+    #        }
+    }
+    
+    $Checkmail = $objUseremail.Text
+    $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
+    $Outlook = New-Object -ComObject Outlook.Application
+    $Mail = $Outlook.CreateItem(0)
+    $Mail.To = "ptcssmovimentacoes@deloitte.com; $Checkmail"
+    $Mail.Subject = $("Devolução de Equipamento Incompleta - " + $GetUser.GivenName + " " + $GetUser.sn + " - " + $GetUser.extensionAttribute8)
+    $Mail.Body += $("Serve o presente email para informar que, "  + $GetUser.GivenName + " " + $GetUser.sn + " (" + $GetUser.extensionAttribute8 + "|" + $objUsername.Text + "), devolveu o Computador (" + $objWorkstation.Text +") mas não devolveu o seguinte equipamento: `n`n" + $List_HeadsetStaff.Text + 'x '+ $HSStaff + $List_Mala.Text + 'x '+ $Mala + $List_Mochila.Text + 'x '+ $Mochila + $List_Cadeado.Text + 'x '+ $Cadeado + $List_HeadsetManager.Text + 'x '+ $HSManager + $List_DongleHDMI.Text + 'x '+ $Dongle + $List_Carregador.Text + 'x '+ $Carregador + $List_DockDell.Text + 'x '+ $Placa  +"`nFoi registada a devolução no inventário. `n`n Valor apresentado por unidade.`n`n Email enviado pelo UserOut ver 1.5")
+    $Mail.Send()
+    $frmDevImcompleta.Close()
+
+}
+
+$OnLoadForm_StateCorrection=
+{#Correct the initial state of the form to prevent the .Net maximized form issue
+    $frmDevImcompleta.WindowState = $InitialFormWindowState
+}
+# Define an array of checkbox and dropdown list names
+$items = @("HeadsetStaff", "Mala", "Mochila", "Cadeado", "HeadsetManager", "DongleHDMI", "Carregador", "DockDell")
+
+# Define a hashtable of item names and prices
+$prices = @{
+    HeadsetStaff = 30
+    Mala = 40
+    Mochila = 40
+    Cadeado = 25
+    HeadsetManager = 65
+    DongleHDMI = 15
+    Carregador = 75
+    DockDell = 56.40
+}
+
+# Loop through each item name
+foreach ($item in $items) {
+    # Get the checkbox and dropdown list objects by their names
+    $checkBox = Get-Variable -Name "checkBox_$item" -ValueOnly
+    $listBox = Get-Variable -Name "List_$item" -ValueOnly
+
+    # Check if the checkbox is checked
+    if ($checkBox.Checked) {
+        # Get the item name and price from the hashtable
+        $itemName = $item
+        $itemPrice = $prices[$item]
+
+        # Append the item name and price to the email body
+        $Mail.Body += $("`n" + $listBox.Text + 'x ' + "$itemName ($itemPrice€ + IVA*)")
+
+        # Update the database with the value of the dropdown list
+        Invoke-Expression .\Query-Access.ps1 -path "$Database" -query "update Sheet1 SET Sheet1.$item ='$listBox.Text' WHERE Sheet1.TUser='$TUser'" -csv:$false
+    }
+}
+#---------------------------
+#region Generated Form Code
+#---------------------------
+
+$label = New-Object System.Windows.Forms.Label
+$label.Location = New-Object System.Drawing.Point(30,10)
+$label.Size = New-Object System.Drawing.Size(30,20)
+$label.Text = 'Qtd.'
+$frmDevImcompleta.Controls.Add($label)
+
+$frmDevImcompleta.Text = "Devolução Incompleta"
+$frmDevImcompleta.Name = "frmDevImcompleta"
+$frmDevImcompleta.DataBindings.DefaultDataSourceUpdateMode = 0
+$System_Drawing_Size = New-Object System.Drawing.Size
+$System_Drawing_Size.Width = 230
+$System_Drawing_Size.Height = 350
+$frmDevImcompleta.ClientSize = $System_Drawing_Size
+
+$btnEnviarForm.TabIndex = 4
+$btnEnviarForm.Name = "btnEnviarForm"
+$System_Drawing_Size = New-Object System.Drawing.Size
+$System_Drawing_Size.Width = 75
+$System_Drawing_Size.Height = 40
+$btnEnviarForm.Size = $System_Drawing_Size
+$btnEnviarForm.UseVisualStyleBackColor = $True
+$btnEnviarForm.Text = "OK"
+
+$System_Drawing_Point = New-Object System.Drawing.Point
+$System_Drawing_Point.X = 80
+$System_Drawing_Point.Y = 290
+$btnEnviarForm.Location = $System_Drawing_Point
+$btnEnviarForm.DataBindings.DefaultDataSourceUpdateMode = 0
+$btnEnviarForm.add_Click($handler_btnEnviarForm_Click)
+$frmDevImcompleta.Controls.Add($btnEnviarForm)
+
+$checkBox_HeadsetStaff.UseVisualStyleBackColor = $True
+$System_Drawing_Size = New-Object System.Drawing.Size
+$System_Drawing_Size.Width = 250
+$System_Drawing_Size.Height = 24
+$checkBox_HeadsetStaff.Size = $System_Drawing_Size
+$checkBox_HeadsetStaff.TabIndex = 0
+$checkBox_HeadsetStaff.Text = "Headset Staff"
+$System_Drawing_Point = New-Object System.Drawing.Point
+$System_Drawing_Point.X = 60
+$System_Drawing_Point.Y = 30
+$checkBox_HeadsetStaff.Location = $System_Drawing_Point
+$checkBox_HeadsetStaff.DataBindings.DefaultDataSourceUpdateMode = 0
+$checkBox_HeadsetStaff.Name = "checkBox_HeadsetStaff"
+$frmDevImcompleta.Controls.Add($checkBox_HeadsetStaff)
+
+
+$List_HeadsetStaff.text = “”
+$List_HeadsetStaff.width = 40
+$List_HeadsetStaff.autosize = $true
+# Add the items in the dropdown list
+@('1','2','3','4','5') | ForEach-Object {[void] $List_HeadsetStaff.Items.Add($_)}
+# Select the default value
+$List_HeadsetStaff.SelectedIndex = -1
+$List_HeadsetStaff.location = New-Object System.Drawing.Point(20,30)
+$frmDevImcompleta.Controls.Add($List_HeadsetStaff)
+
+#$checkBox_PackMochilaMala.UseVisualStyleBackColor = $True
+#$System_Drawing_Size = New-Object System.Drawing.Size
+#$System_Drawing_Size.Width = 250
+#$System_Drawing_Size.Height = 24
+#$checkBox_PackMochilaMala.Size = $System_Drawing_Size
+#$checkBox_PackMochilaMala.TabIndex = 1
+#$checkBox_PackMochilaMala.Text = "Pack Targus (Mala e Mochila)"
+#$System_Drawing_Point = New-Object System.Drawing.Point
+#$System_Drawing_Point.X = 60
+#$System_Drawing_Point.Y = 40
+#$checkBox_PackMochilaMala.Location = $System_Drawing_Point
+#$checkBox_PackMochilaMala.DataBindings.DefaultDataSourceUpdateMode = 0
+#$checkBox_PackMochilaMala.Name = "checkBox_PackMochilaMala"
+#$frmDevImcompleta.Controls.Add($checkBox_PackMochilaMala)
+
+# $List_HeadsetStaff = New-Object system.Windows.Forms.ComboBox
+# $List_HeadsetStaff.text = “”
+# $List_HeadsetStaff.width = 40
+# $List_HeadsetStaff.autosize = $true
+# $List_HeadsetStaff.Enabled=$false
+# # Add the items in the dropdown list
+# @('1','2','3','4','5') | ForEach-Object {[void] $List_HeadsetStaff.Items.Add($_)}
+# # Select the default value
+# $List_HeadsetStaff.SelectedIndex = -1
+# $List_HeadsetStaff.location = New-Object System.Drawing.Point(20,30)
+# $frmDevImcompleta.Controls.Add($List_HeadsetStaff)
+
+$checkBox_Mala.UseVisualStyleBackColor = $True
+$System_Drawing_Size = New-Object System.Drawing.Size
+$System_Drawing_Size.Width = 250
+$System_Drawing_Size.Height = 24
+$checkBox_Mala.Size = $System_Drawing_Size
+$checkBox_Mala.TabIndex = 2
+$checkBox_Mala.Text = "Mala Targus"
+$System_Drawing_Point = New-Object System.Drawing.Point
+$System_Drawing_Point.X = 60
+$System_Drawing_Point.Y = 60
+$checkBox_Mala.Location = $System_Drawing_Point
+$checkBox_Mala.DataBindings.DefaultDataSourceUpdateMode = 0
+$checkBox_Mala.Name = "checkBox_Mala"
+$frmDevImcompleta.Controls.Add($checkBox_Mala)
+
+$List_Mala = New-Object system.Windows.Forms.ComboBox
+$List_Mala.text = “”
+$List_Mala.width = 40
+$List_Mala.autosize = $true
+$List_Mala.Enabled=$false
+# Add the items in the dropdown list
+@('1','2','3','4','5') | ForEach-Object {[void] $List_Mala.Items.Add($_)}
+# Select the default value
+$List_Mala.SelectedIndex = -1
+$List_Mala.location = New-Object System.Drawing.Point(20,60)
+$frmDevImcompleta.Controls.Add($List_Mala)
+
+
+$checkBox_Mochila.UseVisualStyleBackColor = $True
+$System_Drawing_Size = New-Object System.Drawing.Size
+$System_Drawing_Size.Width = 250
+$System_Drawing_Size.Height = 24
+$checkBox_Mochila.Size = $System_Drawing_Size
+$checkBox_Mochila.TabIndex = 3
+$checkBox_Mochila.Text = "Mochila Targus"
+$System_Drawing_Point = New-Object System.Drawing.Point
+$System_Drawing_Point.X = 60
+$System_Drawing_Point.Y = 90
+$checkBox_Mochila.Location = $System_Drawing_Point
+$checkBox_Mochila.DataBindings.DefaultDataSourceUpdateMode = 0
+$checkBox_Mochila.Name = "checkBox_Mochila"
+$frmDevImcompleta.Controls.Add($checkBox_Mochila)
+
+$List_Mochila = New-Object system.Windows.Forms.ComboBox
+$List_Mochila.text = “”
+$List_Mochila.width = 40
+$List_Mochila.autosize = $true
+$List_Mochila.Enabled=$false
+# Add the items in the dropdown list
+@('1','2','3','4','5') | ForEach-Object {[void] $List_Mochila.Items.Add($_)}
+# Select the default value
+$List_Mochila.SelectedIndex = -1
+$List_Mochila.location = New-Object System.Drawing.Point(20,90)
+$frmDevImcompleta.Controls.Add($List_Mochila)
+
+$checkBox_Cadeado.UseVisualStyleBackColor = $True
+$System_Drawing_Size = New-Object System.Drawing.Size
+$System_Drawing_Size.Width = 250
+$System_Drawing_Size.Height = 24
+$checkBox_Cadeado.Size = $System_Drawing_Size
+$checkBox_Cadeado.TabIndex = 4
+$checkBox_Cadeado.Text = "Cadeado"
+$System_Drawing_Point = New-Object System.Drawing.Point
+$System_Drawing_Point.X = 60
+$System_Drawing_Point.Y = 120
+$checkBox_Cadeado.Location = $System_Drawing_Point
+$checkBox_Cadeado.DataBindings.DefaultDataSourceUpdateMode = 0
+$checkBox_Cadeado.Name = "checkBox_Cadeado"
+$frmDevImcompleta.Controls.Add($checkBox_Cadeado)
+
+$List_Cadeado = New-Object system.Windows.Forms.ComboBox
+$List_Cadeado.text = “”
+$List_Cadeado.width = 40
+$List_Cadeado.autosize = $true
+$List_Cadeado.Enabled=$false
+# Add the items in the dropdown list
+@('1','2','3','4','5') | ForEach-Object {[void] $List_Cadeado.Items.Add($_)}
+# Select the default value
+$List_Cadeado.SelectedIndex = -1
+$List_Cadeado.location = New-Object System.Drawing.Point(20,120)
+$frmDevImcompleta.Controls.Add($List_Cadeado)
+
+$checkBox_HeadsetManager.UseVisualStyleBackColor = $True
+$System_Drawing_Size = New-Object System.Drawing.Size
+$System_Drawing_Size.Width = 250
+$System_Drawing_Size.Height = 24
+$checkBox_HeadsetManager.Size = $System_Drawing_Size
+$checkBox_HeadsetManager.TabIndex = 5
+$checkBox_HeadsetManager.Text = "Headset Manager"
+$System_Drawing_Point = New-Object System.Drawing.Point
+$System_Drawing_Point.X = 60
+$System_Drawing_Point.Y = 150
+$checkBox_HeadsetManager.Location = $System_Drawing_Point
+$checkBox_HeadsetManager.DataBindings.DefaultDataSourceUpdateMode = 0
+$checkBox_HeadsetManager.Name = "checkBox_HeadsetManager"
+$frmDevImcompleta.Controls.Add($checkBox_HeadsetManager)
+
+$List_HeadsetManager = New-Object system.Windows.Forms.ComboBox
+$List_HeadsetManager.text = “”
+$List_HeadsetManager.width = 40
+$List_HeadsetManager.autosize = $true
+$List_HeadsetManager.Enabled=$false
+# Add the items in the dropdown list
+@('1','2','3','4','5') | ForEach-Object {[void] $List_HeadsetManager.Items.Add($_)}
+# Select the default value
+$List_HeadsetManager.SelectedIndex = -1
+$List_HeadsetManager.location = New-Object System.Drawing.Point(20,150)
+$frmDevImcompleta.Controls.Add($List_HeadsetManager)
+
+$checkBox_DongleHDMI.UseVisualStyleBackColor = $True
+$System_Drawing_Size = New-Object System.Drawing.Size
+$System_Drawing_Size.Width = 250
+$System_Drawing_Size.Height = 24
+$checkBox_DongleHDMI.Size = $System_Drawing_Size
+$checkBox_DongleHDMI.TabIndex = 6
+$checkBox_DongleHDMI.Text = "Dongle HDMI"
+$System_Drawing_Point = New-Object System.Drawing.Point
+$System_Drawing_Point.X = 60
+$System_Drawing_Point.Y = 180
+$checkBox_DongleHDMI.Location = $System_Drawing_Point
+$checkBox_DongleHDMI.DataBindings.DefaultDataSourceUpdateMode = 0
+$checkBox_DongleHDMI.Name = "checkBox_DongleHDMI"
+$frmDevImcompleta.Controls.Add($checkBox_DongleHDMI) 
+
+$List_DongleHDMI = New-Object system.Windows.Forms.ComboBox
+$List_DongleHDMI.text = “”
+$List_DongleHDMI.width = 40
+$List_DongleHDMI.autosize = $true
+$List_DongleHDMI.Enabled=$false
+# Add the items in the dropdown list
+@('1','2','3','4','5') | ForEach-Object {[void] $List_DongleHDMI.Items.Add($_)}
+# Select the default value
+$List_DongleHDMI.SelectedIndex = -1
+$List_DongleHDMI.location = New-Object System.Drawing.Point(20,180)
+$frmDevImcompleta.Controls.Add($List_DongleHDMI)
+
+$checkBox_Carregador.UseVisualStyleBackColor = $True
+$System_Drawing_Size = New-Object System.Drawing.Size
+$System_Drawing_Size.Width = 250
+$System_Drawing_Size.Height = 24
+$checkBox_Carregador.Size = $System_Drawing_Size
+$checkBox_Carregador.TabIndex = 7
+$checkBox_Carregador.Text = "Transformador/Carregador"
+$System_Drawing_Point = New-Object System.Drawing.Point
+$System_Drawing_Point.X = 60
+$System_Drawing_Point.Y = 210
+$checkBox_Carregador.Location = $System_Drawing_Point
+$checkBox_Carregador.DataBindings.DefaultDataSourceUpdateMode = 0
+$checkBox_Carregador.Name = "checkBox_Carregador"
+$frmDevImcompleta.Controls.Add($checkBox_Carregador)
+
+$List_Carregador = New-Object system.Windows.Forms.ComboBox
+$List_Carregador.text = “”
+$List_Carregador.width = 40
+$List_Carregador.autosize = $true
+$List_Carregador.Enabled=$false
+# Add the items in the dropdown list
+@('1','2','3','4','5') | ForEach-Object {[void] $List_Carregador.Items.Add($_)}
+# Select the default value
+$List_Carregador.SelectedIndex = -1
+$List_Carregador.location = New-Object System.Drawing.Point(20,210)
+$frmDevImcompleta.Controls.Add($List_Carregador)
+
+$checkBox_DockDell.UseVisualStyleBackColor = $True
+$System_Drawing_Size = New-Object System.Drawing.Size
+$System_Drawing_Size.Width = 250
+$System_Drawing_Size.Height = 24
+$checkBox_DockDell.Size = $System_Drawing_Size
+$checkBox_DockDell.TabIndex = 8
+$checkBox_DockDell.Text = "Dock Dell"
+$System_Drawing_Point = New-Object System.Drawing.Point
+$System_Drawing_Point.X = 60
+$System_Drawing_Point.Y = 240
+$checkBox_DockDell.Location = $System_Drawing_Point
+$checkBox_DockDell.DataBindings.DefaultDataSourceUpdateMode = 0
+$checkBox_DockDell.Name = "checkBox_DockDell"
+$frmDevImcompleta.Controls.Add($checkBox_DockDell)
+
+$List_DockDell = New-Object system.Windows.Forms.ComboBox
+$List_DockDell.text = “”
+$List_DockDell.width = 40
+$List_DockDell.autosize = $true
+$List_DockDell.Enabled=$false
+# Add the items in the dropdown list
+@('1','2','3','4','5') | ForEach-Object {[void] $List_DockDell.Items.Add($_)}
+# Select the default value
+$List_DockDell.SelectedIndex = -1
+$List_DockDell.location = New-Object System.Drawing.Point(20,240)
+$frmDevImcompleta.Controls.Add($List_DockDell)
+
+# $checkBox_Computador.UseVisualStyleBackColor = $True
+# $System_Drawing_Size = New-Object System.Drawing.Size
+# $System_Drawing_Size.Width = 250
+# $System_Drawing_Size.Height = 24
+# $checkBox_Computador.Size = $System_Drawing_Size
+# $checkBox_Computador.TabIndex = 9
+# $checkBox_Computador.Text = "Computador"
+# $System_Drawing_Point = New-Object System.Drawing.Point
+# $System_Drawing_Point.X = 60
+# $System_Drawing_Point.Y = 270
+# $checkBox_Computador.Location = $System_Drawing_Point
+# $checkBox_Computador.DataBindings.DefaultDataSourceUpdateMode = 0
+# $checkBox_Computador.Name = "checkBox_Computador"
+# $frmDevImcompleta.Controls.Add($checkBox_Computador)
+
+# $List_DockDell = New-Object system.Windows.Forms.ComboBox
+# $List_DockDell.text = “”
+# $List_DockDell.width = 40
+# $List_DockDell.autosize = $true
+# $List_DockDell.Enabled=$false
+# # Add the items in the dropdown list
+# @('1','2','3','4','5') | ForEach-Object {[void] $List_DockDell.Items.Add($_)}
+# # Select the default value
+# $List_DockDell.SelectedIndex = -1
+# $List_DockDell.location = New-Object System.Drawing.Point(20,240)
+# $frmDevImcompleta.Controls.Add($List_DockDell)
+
+#Save the initial state of the form
+$InitialFormWindowState = $frmDevImcompleta.WindowState
+
+#Init the OnLoad event to correct the initial state of the form
+$frmDevImcompleta.add_Load($OnLoadForm_StateCorrection)
+$frmDevImcompleta.ShowDialog()| Out-Null
+
+} #End Function
+
+$DIButton = New-Object System.Windows.Forms.Button
+$DIButton.Location = New-Object System.Drawing.Size(250,200)
+$DIButton.Size = New-Object System.Drawing.Size(200,23)
+$DIButton.Text = "Devolução Incompleta"
+$DIButton.Add_Click({    
+GenerateForm
+;$objForm.Close()})
+$objForm.Controls.Add($DIButton)
+
+#$objForm.Topmost = $True
+
+$objForm.Add_Shown({$objForm.Activate()})
+[void] $objForm.ShowDialog()
+
+# Export to Log
+
+New-Object -TypeName PSCustomObject -Property @{
+    Date = Get-Date
+    Technician = $env:USERNAME
+    Colaborador = $objUsername.Text
+    Workstation = $objWorkstation.Text
+} | Export-Csv -Path $PSScriptRoot\Log.csv -NoTypeInformation -Append
+
+$GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
+$TUser = $GetUser.extensionAttribute8
+
