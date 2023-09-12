@@ -72,7 +72,7 @@ $objWorkstation.Size = New-Object System.Drawing.Size(95,20)
 $objForm.Controls.Add($objWorkstation) 
 
 #----------------
-# Check Email pessoal
+# Email pessoal
 #----------------
 
 $Useremail = New-Object System.Windows.Forms.Label
@@ -109,7 +109,7 @@ $DCButton.Add_Click({
     
     $FindUser= $FindUser.Expr1000.CompareTo(1)
 
-    if($FindUser -eq 0) #Atualiza na DB
+    if($FindUser -like 0) #Atualiza na DB
     {
     #[System.Windows.MessageBox]::Show('Edit')
     $NSerie=$objWorkstation.Text
@@ -117,7 +117,7 @@ $DCButton.Add_Click({
     $Outlook = New-Object -ComObject Outlook.Application
     $Mail = $Outlook.CreateItem(0)
     $Mail.To = "ptcssmovimentacoes@deloitte.com; $Checkmail"
-    $Mail.Subject = $("Devolução de Equipamento Incompleta - " + $GetUser.GivenName + " " + $GetUser.sn + " - " + $GetUser.extensionAttribute8)
+    $Mail.Subject = $("Devolução de Equipamento Completa - " + $GetUser.GivenName + " " + $GetUser.sn + " - " + $GetUser.extensionAttribute8)
     $Mail.Body = $("Serve o presente email para informar que, "  + $GetUser.GivenName + " " + $GetUser.sn + " (" + $GetUser.extensionAttribute8 + "|" + $objUsername.Text + ") devolveu o computador (" + $objWorkstation.Text +") e respetivos acessórios que lhe estavam atribuídos. Foi registada a devolução no inventário. `n`n`n`n`n`n`n`n`n`n`n Email enviado pelo UserOut ver 1.5")
     $Mail.Send()
 
@@ -306,7 +306,7 @@ $handler_btnEnviarForm_Click=
     $Data=Get-Date -Format "dd-MM-yyyy"
     $NSerie=$objWorkstation.Text
     $User=$objUsername.Text
-    $FindUser = Invoke-Expression .\Query-Access.ps1 -path $Database -query "select COUNT(TUser) FROM Sheet1 WHERE TUser='$TUser'" -csv:$false
+    $FindUser = .\Query-Access.ps1 -path $Database -query "select COUNT(TUser) FROM Sheet1 WHERE TUser='$TUser'" -csv:$false
     $FindUser= $FindUser.Expr1000.CompareTo(1)
 
 #     .\Query-Access.ps1 -path $Database -query "update  Sheet1 SET Sheet1.HeadsetStaff ='$List_HeadsetStaff.SelectedValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
@@ -326,60 +326,60 @@ $handler_btnEnviarForm_Click=
 
     if($FindUser -like 0)#User registado na BD
     {
-        if ($checkBox_HeadsetStaff.Checked) { $HSStaff = "Headset Staff (30€ + IVA*) `n" 
+        if ($checkBox_HeadsetStaff.Checked) { $HSStaff = "Headset Staff (30€ + IVA) `n" 
            $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
            $TUser=$GetUser.extensionAttribute8
            $TempWriteValue= $List_HeadsetStaff.Text
            .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.HeadsetStaff ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
 
             }
-    # if ($checkBox_PackMochilaMala.Checked) { $Pack = "Pack Mala e Mochila (80€ + IVA*) `n" 
+    # if ($checkBox_PackMochilaMala.Checked) { $Pack = "Pack Mala e Mochila (80€ + IVA) `n" 
     #        $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
     #        $TUser=$GetUser.extensionAttribute8
     #        $TempWriteValue= $.Text
     #        .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.PackTargus =Yes WHERE Sheet1.TUser='$TUser'" -csv:$false
     #         }
-    if ($checkBox_Mala.Checked) { $Mala = "Mala (40€ + IVA*) `n"
+    if ($checkBox_Mala.Checked) { $Mala = "Mala (40€ + IVA) `n"
             $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
            $TUser=$GetUser.extensionAttribute8
            $TempWriteValue= $List_Mala.Text
            .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.MalaTargus ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
 
             }
-    if ($checkBox_Mochila.Checked) { $Mochila = "Mochila (40€ + IVA*) `n"
+    if ($checkBox_Mochila.Checked) { $Mochila = "Mochila (40€ + IVA) `n"
             $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
            $TUser=$GetUser.extensionAttribute8
            $TempWriteValue= $List_Mochila.Text
            .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.MochilaTargus ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
 
             }
-    if ($checkBox_Cadeado.Checked) { $Cadeado = "Cadeado (25€ + IVA*) `n"
+    if ($checkBox_Cadeado.Checked) { $Cadeado = "Cadeado (25€ + IVA) `n"
            $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
            $TUser=$GetUser.extensionAttribute8
            $TempWriteValue= $List_Cadeado.Text
            .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.Cadeado ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
             }
-    if ($checkBox_HeadsetManager.Checked) { $HSManager = "Headset Manager (65€ + IVA*) `n"
+    if ($checkBox_HeadsetManager.Checked) { $HSManager = "Headset Manager (65€ + IVA) `n"
             $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
            $TUser=$GetUser.extensionAttribute8
            $TempWriteValue= $List_HeadsetManager.Text
            .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.HeadsetManager ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
 
             } 
-    if ($checkBox_DongleHDMI.Checked) { $Dongle = "Dongle HDMI (15€ + IVA*) `n" 
+    if ($checkBox_DongleHDMI.Checked) { $Dongle = "Dongle HDMI (15€ + IVA) `n" 
             $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
            $TUser=$GetUser.extensionAttribute8
            $TempWriteValue= $List_DongleHDMI.Text
            .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.DongleHDMI ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
              } 
-    if ($checkBox_Carregador.Checked) { $Carregador = "Transformador/Carregador (75€ + IVA*) `n"
+    if ($checkBox_Carregador.Checked) { $Carregador = "Transformador/Carregador (75€ + IVA) `n"
             $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
            $TUser=$GetUser.extensionAttribute8
            $TempWriteValue= $List_Carregador.Text
            .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.Carregador ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
 
             } 
-    if ($checkBox_DockDell.Checked) { $Placa = "Dock Dell (56,40€ + IVA*) `n" 
+    if ($checkBox_DockDell.Checked) { $Placa = "Dock Dell (56,40€ + IVA) `n" 
          $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
            $TUser=$GetUser.extensionAttribute8
            $TempWriteValue= $List_DockDell.Text
@@ -395,62 +395,62 @@ $handler_btnEnviarForm_Click=
     }
     else{
           .\Query-Access.ps1 -path "$Database" -query "INSERT INTO Sheet1(TUser,Utilizador,Nome,NSerie,DataDevolucao) VALUES ('$TUser','$User','$NomeUser','$NSerie','$Data')" -csv:$false
-    if ($checkBox_HeadsetStaff.Checked) { $HSStaff = "Headset Staff (30€ + IVA*) `n" 
+    if ($checkBox_HeadsetStaff.Checked) { $HSStaff = "Headset Staff (30€ + IVA) `n" 
            $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
            $TUser=$GetUser.extensionAttribute8
            $TempWriteValue= $List_HeadsetStaff.Text
            .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.HeadsetStaff ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
 
             }
-    # if ($checkBox_PackMochilaMala.Checked) { $Pack = "Pack Mala e Mochila (80€ + IVA*) `n" 
+    # if ($checkBox_PackMochilaMala.Checked) { $Pack = "Pack Mala e Mochila (80€ + IVA) `n" 
     #        $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
     #        $TUser=$GetUser.extensionAttribute8
     #        .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.PackTargus ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
 
     #         }
-    if ($checkBox_Mala.Checked) { $Mala = "Mala (40€ + IVA*) `n"
+    if ($checkBox_Mala.Checked) { $Mala = "Mala (40€ + IVA) `n"
             $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
            $TUser=$GetUser.extensionAttribute8
            $TempWriteValue= $List_Mala.Text
            .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.MalaTargus ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
 
             }
-    if ($checkBox_Mochila.Checked) { $Mochila = "Mochila (40€ + IVA*) `n"
+    if ($checkBox_Mochila.Checked) { $Mochila = "Mochila (40€ + IVA) `n"
             $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
            $TUser=$GetUser.extensionAttribute8
            $TempWriteValue= $List_Mochila.Text
            .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.MochilaTargus ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
 
             }
-    if ($checkBox_Cadeado.Checked) { $Cadeado = "Cadeado (25€ + IVA*) `n"
+    if ($checkBox_Cadeado.Checked) { $Cadeado = "Cadeado (25€ + IVA) `n"
            $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
            $TUser=$GetUser.extensionAttribute8
            $TempWriteValue= $List_Cadeado.Text
            .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.Cadeado ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
 
             }
-    if ($checkBox_HeadsetManager.Checked) { $HSManager = "Headset Manager (65€ + IVA*) `n"
+    if ($checkBox_HeadsetManager.Checked) { $HSManager = "Headset Manager (65€ + IVA) `n"
             $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
            $TUser=$GetUser.extensionAttribute8
            $TempWriteValue= $List_HeadsetManager.Text
            .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.HeadsetManager ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
 
             } 
-    if ($checkBox_DongleHDMI.Checked) { $Dongle = "Dongle HDMI (15€ + IVA*) `n" 
+    if ($checkBox_DongleHDMI.Checked) { $Dongle = "Dongle HDMI (15€ + IVA) `n" 
             $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
            $TUser=$GetUser.extensionAttribute8
            $TempWriteValue= $List_DongleHDMI.Text
            .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.DongleHDMI ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
 
             } 
-    if ($checkBox_Carregador.Checked) { $Carregador = "Transformador/Carregador (75€ + IVA*) `n"
+    if ($checkBox_Carregador.Checked) { $Carregador = "Transformador/Carregador (75€ + IVA) `n"
             $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
            $TUser=$GetUser.extensionAttribute8
            $TempWriteValue= $List_Carregador.Text
            .\Query-Access.ps1 -path "$Database" -query "update  Sheet1 SET Sheet1.Carregador ='$TempWriteValue' WHERE Sheet1.TUser='$TUser'" -csv:$false
 
             } 
-    if ($checkBox_DockDell.Checked) { $Placa = "Dock Dell (56,40€ + IVA*) `n" 
+    if ($checkBox_DockDell.Checked) { $Placa = "Dock Dell (56,40€ + IVA) `n" 
          $GetUser = Get-ADUser -Identity $objUsername.Text -Properties extensionAttribute8,GivenName,sn
            $TUser=$GetUser.extensionAttribute8
            $TempWriteValue= $List_DockDell.Text
@@ -471,7 +471,7 @@ $handler_btnEnviarForm_Click=
     $Mail = $Outlook.CreateItem(0)
     $Mail.To = "ptcssmovimentacoes@deloitte.com; $Checkmail"
     $Mail.Subject = $("Devolução de Equipamento Incompleta - " + $GetUser.GivenName + " " + $GetUser.sn + " - " + $GetUser.extensionAttribute8)
-    $Mail.Body += $("Serve o presente email para informar que, "  + $GetUser.GivenName + " " + $GetUser.sn + " (" + $GetUser.extensionAttribute8 + "|" + $objUsername.Text + "), devolveu o Computador (" + $objWorkstation.Text +") mas não devolveu o seguinte equipamento: `n`n" + $List_HeadsetStaff.Text + 'x '+ $HSStaff + $List_Mala.Text + 'x '+ $Mala + $List_Mochila.Text + 'x '+ $Mochila + $List_Cadeado.Text + 'x '+ $Cadeado + $List_HeadsetManager.Text + 'x '+ $HSManager + $List_DongleHDMI.Text + 'x '+ $Dongle + $List_Carregador.Text + 'x '+ $Carregador + $List_DockDell.Text + 'x '+ $Placa  +"`nFoi registada a devolução no inventário. `n`n Valor apresentado por unidade.`n`n Email enviado pelo UserOut ver 1.5")
+    $Mail.Body = $("Serve o presente email para informar que, "  + $GetUser.GivenName + " " + $GetUser.sn + " (" + $GetUser.extensionAttribute8 + "|" + $objUsername.Text + "), devolveu o Computador (" + $objWorkstation.Text +") mas não devolveu o seguinte equipamento: `n`n" + $List_HeadsetStaff.Text + 'x '+ $HSStaff + $List_Mala.Text + 'x '+ $Mala + $List_Mochila.Text + 'x '+ $Mochila + $List_Cadeado.Text + 'x '+ $Cadeado + $List_HeadsetManager.Text + 'x '+ $HSManager + $List_DongleHDMI.Text + 'x '+ $Dongle + $List_Carregador.Text + 'x '+ $Carregador + $List_DockDell.Text + 'x '+ $Placa  +"`nFoi registada a devolução no inventário. `n`n Valor apresentado por unidade.`n`n Email enviado pelo UserOut ver 1.5")
     $Mail.Send()
     $frmDevImcompleta.Close()
 
@@ -481,40 +481,7 @@ $OnLoadForm_StateCorrection=
 {#Correct the initial state of the form to prevent the .Net maximized form issue
     $frmDevImcompleta.WindowState = $InitialFormWindowState
 }
-# Define an array of checkbox and dropdown list names
-$items = @("HeadsetStaff", "Mala", "Mochila", "Cadeado", "HeadsetManager", "DongleHDMI", "Carregador", "DockDell")
 
-# Define a hashtable of item names and prices
-$prices = @{
-    HeadsetStaff = 30
-    Mala = 40
-    Mochila = 40
-    Cadeado = 25
-    HeadsetManager = 65
-    DongleHDMI = 15
-    Carregador = 75
-    DockDell = 56.40
-}
-
-# Loop through each item name
-foreach ($item in $items) {
-    # Get the checkbox and dropdown list objects by their names
-    $checkBox = Get-Variable -Name "checkBox_$item" -ValueOnly
-    $listBox = Get-Variable -Name "List_$item" -ValueOnly
-
-    # Check if the checkbox is checked
-    if ($checkBox.Checked) {
-        # Get the item name and price from the hashtable
-        $itemName = $item
-        $itemPrice = $prices[$item]
-
-        # Append the item name and price to the email body
-        $Mail.Body += $("`n" + $listBox.Text + 'x ' + "$itemName ($itemPrice€ + IVA*)")
-
-        # Update the database with the value of the dropdown list
-        Invoke-Expression .\Query-Access.ps1 -path "$Database" -query "update Sheet1 SET Sheet1.$item ='$listBox.Text' WHERE Sheet1.TUser='$TUser'" -csv:$false
-    }
-}
 #---------------------------
 #region Generated Form Code
 #---------------------------
